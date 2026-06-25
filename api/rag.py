@@ -6,6 +6,7 @@ a chunk in the top-`k` retrieved from Weaviate.
 
 Generator called with `do_sample=False` for reproducibility.
 """
+
 import re
 from typing import Tuple
 
@@ -54,7 +55,9 @@ def extract_citations(answer: str, numbered: dict[int, dict]) -> list[dict]:
     return cited
 
 
-def compose_rag(question: str, embedder, weaviate_client, generator, k: int = 4) -> dict:
+def compose_rag(
+    question: str, embedder, weaviate_client, generator, k: int = 4
+) -> dict:
     """Run the four-stage RAG pipeline.
 
     Encodes the question via the externally-loaded sentence-transformers
@@ -74,7 +77,7 @@ def compose_rag(question: str, embedder, weaviate_client, generator, k: int = 4)
     )
     retrieved = [
         {
-            "chunk_id": c["chunk_id"],
+            "chunk_id": int(c["chunk_id"]),  # cast float → int
             "text": c["text"],
             "score": 1.0 - c["_additional"]["distance"],
         }

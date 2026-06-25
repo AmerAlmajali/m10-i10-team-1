@@ -10,7 +10,7 @@ Discipline gates the autograder enforces:
   within 2 seconds; failure → 503.
 - `/healthz` does NOT touch Neo4j or Weaviate.
 """
-import os
+
 from contextlib import asynccontextmanager
 
 import spacy
@@ -35,31 +35,32 @@ from .models import (
 )
 from .nlp import extract_entities
 from .rag import compose_rag
+from .settings import Settings
 from .w9b_mapper.errors import UnsupportedQueryError
 from .w9b_mapper.shapes import SUPPORTED_PATTERNS
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    cfg = Settings()
     app.state.neo4j_driver = GraphDatabase.driver(
-        os.environ["NEO4J_URI"],
-        auth=(os.environ["NEO4J_USER"], os.environ["NEO4J_PASSWORD"]),
+        cfg.neo4j_uri,
+        auth=(cfg.neo4j_user, cfg.neo4j_password),
     )
-    app.state.weaviate_client = weaviate.Client(os.environ["WEAVIATE_URL"])
+    app.state.weaviate_client = weaviate.Client(cfg.weaviate_url)
     app.state.nlp = spacy.load("en_core_web_sm")
     app.state.generator = load_generator()
-    # Same sentence-transformers model the seed used at ingest. The
-    # Weaviate class is `vectorizer=none`, so /rag/answer encodes the
-    # query externally and queries via `with_near_vector`.
     app.state.embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     yield
     app.state.neo4j_driver.close()
 
 
 app = FastAPI(title="M10 Recipe Service", lifespan=lifespan)
+
+_settings = Settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.environ.get("WEB_ORIGIN", "http://localhost:3000")],
+    allow_origins=[_settings.web_origin],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
